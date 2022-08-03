@@ -60,7 +60,7 @@ for (file in merfish_files){
   
   # Now make the Giotto object for this file 
   file_object <- createGiottoObject(expression = expression_matrix,
-                                   spatial_locs = WT_niche_DT_cell_coordinates,
+                                   spatial_locs = WT_niche_DT_cell_coordinates[,.(Center_x, Center_y, CellID)],
                                    instructions = instrs)
   
   # Go through typical normalization process for the object 
