@@ -1,0 +1,40 @@
+# Load packages 
+library(data.table)
+library(R.matlab)
+library(ggplot2)
+library(Giotto)
+
+#Set results folder and instructions for giotto
+results_folder = '/projectnb/rd-spat/HOME/cmccormi/MERFISH_Wang/HSC_MERFISH_Codes_and_Data/Data_20210113/WT_CellList' 
+
+instrs = createGiottoInstructions(save_dir = results_folder,
+                                  save_plot = TRUE,
+                                  show_plot = TRUE,
+                                  return_plot = TRUE)
+
+# Create a list that will hold all of the filtered objects and read in the non-filtered already created objects (see create_objects) 
+filtered_objects <- list()
+list_of_objects <- readRDS("Giotto_Objects.rds")
+
+# To find the appropriate filtering parameters, take the largest Giotto object and determine appropriate cutoffs for feats
+largest_object <- list_of_objects[[2]]
+filterDistributions(largest_object, detection = 'feats')
+filterDistributions(largest_object, detection = 'cells')
+
+# Visualize the number of cells that would be removed with these combinations of filters 
+filterCombinations(largest_object,
+                   expression_thresholds = c(0,1e-6,1e-5),
+                   feat_det_in_min_cells = c(5, 10, 50),
+                   min_det_feats_per_cell = c(1, 5, 10))
+# Based on these graphs decide the filtering appropriate for the analysis 
+
+# Now apply these filtering conditions to each of the objects and returned the filtered version
+
+for(object in 1:length(list_of_objects)){
+  current_object = list_of_objects[[object]]
+  current_object <- filterGiotto(gobject = current_object, feat_det_in_min_cells = 100, min_det_feats_per_cell = 10)
+  filtered_objects[[object]] = processed_object  
+}
+
+# Save the filtered objects as an RDS file 
+saveRDS(filtered_objects, file = "Filtered_Objects.rds")
