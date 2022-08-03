@@ -1,0 +1,34 @@
+# Read in the filtered objects for this directory containing samples 
+
+reduced_objects <- list()
+list_of_objects <- readRDS("Filtered_Objects.rds")
+
+
+for(i in 1:length(list_of_objects)){
+  current_object <- list_of_objects[[object]]
+  # Run and plot the PCA 
+  current_object <- runPCA(gobject = current_object, genes_to_use = NULL, center = TRUE, approx = FALSE)
+  plotPCA(gobject = current_object, point_size = 1, dim_reduction_name = as.char(i))
+  
+  # Run and plot the UMAP reduction 
+  current_object7 = runUMAP(current_object, dimensions_to_use = 1:8)
+  plotUMAP(gobject = current_object, point_size = 1, dim_reduction_name = as.char(i))
+
+  # Create a nearest network 
+  current_object <- createNearestNetwork(current_object, dimensions_to_use = 1:8, k = 15)
+  
+  # Cluster cells (use clustree function to determine the resolution)
+  current_object <- doLeidenCluster(current_object, resolution = 0.2, n_iterations = 100)
+  
+  # Project these clusters onto the UMAP 
+  plotUMAP(giotto_object_190517, cell_color = 'leiden_clus', point_size = 1, title = as.char(i))
+
+  # Visualize the leiden clusters in 2D space 
+  spatPlot2D(gobject = current_object, cell_color = 'leiden_clus', point_size = 1, coord_fix_ratio = 1, title = as.char(i))
+
+  # Return the Giotto object that has all the new components of reduction in it 
+  reduced_objects[[i]] = current_object
+}
+
+saveRDS(reduced_objects, file = "Reduced_Objects.rds")
+
