@@ -1,0 +1,75 @@
+# Load nessecary packages
+library(Giotto)
+library(data.table)
+library(R.matlab)
+library(ggplot2)
+
+# Give the path for the results of the analysis and create giotto instructions
+results_folder = 'PATH'
+instrs = createGiottoInstructions(save_dir = results_folder,
+                                  save_plot = FALSE,
+                                  show_plot = TRUE,
+                                  return_plot = TRUE)
+
+
+# A list that will contain all of the Giotto objects 
+giotto_objects <- list()
+
+
+# Collect all files in the current directory that contain MERFISH data in the .mat form 
+merfish_files <- list.files(pattern = "\\.mat$")
+
+# Now loop through each of these files and create a Giotto object for each one 
+for (file in merfish_files){
+
+  # Begin by reading in each matlab file and converting it using the r.matlab package 
+  single_file_data <- R.matlab::readMat(file)
+  
+  # For each file that we are looping through find the total number of cells by checking the number of cell ids 
+  total_cells_single_file = dim(single_file_data[[1]])[3]
+  
+  #List which will contain a datatable holding information for each cell.  
+  complete_cells = list()
+  
+  # loop through each cell in the file that we are looking at 
+  for(cell_i in 1:total_cells_single_file) {
+    cell_info_i = data.table::as.data.table(single_file_data[[1]][c(1,3:8),1,cell_i]) #collect all cell info 
+    colnames(cell_info_i) = c("CellID", "FOV", "Center_x",   "Center_y", "RNACopyNumber", "TotalRNACopyNumber", "OnEdge", "CellType")
+    cell_info_i[, gene_names := paste0('gene_', 1:.N)] #create pseudo names at the moment for all of the genes to be use 
+    complete_cells[[cell_i]] = cell_info_i
+  }
+  
+  # rbind list of data.tables (for each cell)
+  combined_cells = data.table::rbindlist(complete_cells)
+  
+  # Now that we have a datatable with all of the cell information we can subset this to get the info we need for expression and spatial 
+  WT_niche_DT_cell_coordinates = unique(combined_cells[,.(CellID, Center_x,Center_y, CellType, FOV)])
+  
+
+  # Now create the gene expression table for this file using the number of RNA species per cell 
+  combined_cells[, RNACopyNumber := as.numeric(RNACopyNumber)]
+  combined_cells[, CellID := as.character(CellID)]
+  
+  expression_subset <- combined_cells[,.(gene_names, CellID, RNACopyNumber)]
+ 
+  expression_subset_mdt = dcast.data.table(expression_subset, formula = gene_names~CellID, 
+                                           value.var = "RNACopyNumber")
+  
+  #Convert to a matrix 
+  expression_matrix = Giotto:::dt_to_matrix(expression_subset_mdt)
+  
+  # Now make the Giotto object for this file 
+  file_object <- createGiottoObject(expression = expression_matrix,
+                                   spatial_locs = WT_niche_DT_cell_coordinates,
+                                   instructions = instrs)
+  
+  # Go through typical normalization process for the object 
+  file_object <- normalizeGiotto(gobject = file_object, verbose = T)
+  file_object <- addStatistics(gobject = file_object)
+  
+  # Add this Giotto object to the list of objects we made at the very beginning 
+  giotto_objects[file] <- fov_object
+}
+
+# Now save all of these objects in a list to be used at some later point in the analysis 
+saveRDS(giotto_objects, file = "giotto_objects_WT_niche.rds")
