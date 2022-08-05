@@ -67,9 +67,13 @@ for (file in merfish_files){
   file_object <- normalizeGiotto(gobject = file_object, verbose = T)
   file_object <- addStatistics(gobject = file_object)
   
+  # Adjust the matrix to regress out any genes associated with overall gene number
+  file_object <- adjustGiottoMatrix(file_object, expression_values = "normalized", covariate_columns = "nr_feats")
+
+  
   # Add this Giotto object to the list of objects we made at the very beginning 
   giotto_objects[file] <- fov_object
 }
 
 # Now save all of these objects in a list to be used at some later point in the analysis 
-saveRDS(giotto_objects, file = "giotto_objects_WT_niche.rds")
+saveRDS(giotto_objects, file = "giotto_objects.rds")
