@@ -32,3 +32,85 @@ for(i in 1:length(list_of_objects)){
 
 saveRDS(reduced_objects, file = "Reduced_Objects.rds")
 
+# Perform Differential Gene Expression Analysis
+index_gene = 1
+
+for(object in 1: length(filtered_objects)){
+  
+  current_object = list_of_objects[[object]]
+  # Find the top genes for these clusters using the gini method 
+  markers = findMarkers_one_vs_all(gobject = current_object,
+                                   method = 'gini',
+                                   expression_values = 'custom',
+                                   cluster_column = 'leiden_clus',
+                                   min_feats = 1, rank_score = 2)
+  
+  markers[, head(.SD, 3), by = 'cluster']
+  
+  # Print out the top genes 
+  top_genes = unique(markers[, head(.SD, 3), by = 'cluster']$feats)
+  paste(sample_names[index], " top genes:", top_genes)
+  
+  # Display the top genes per cluster using a heatmap
+  plotMetaDataHeatmap(current_object, expression_values = 'custom',
+                    metadata_cols = c('leiden_clus'),
+                    selected_feats = top_genes, title = sample_names[index_gene])
+
+  #increment the counter 
+  index_gene = index_gene +1 
+}  
+
+```
+
+# Annotate Cell Types and Display
+
+cell_type_index = 1 
+
+# Based on the most expressed genes for each cluster, refer to literature, and define the cell type 
+for(object in 1:length(filtered_objects)){
+  urrent_object = list_of_objects[[object]]
+  cluster_order = c(1,2,3,4,5,6,7,8,9)
+  # Theoretical cell types (rearrange for new dataset)
+  clusters_cell_types_hypo = c("Hepatocyte", "EC", "Erythroid", "Erythroid Progenitor", "Macrophage", 
+                             "SEC", "AEC", "Megakaryocyte", "Myeloid")
+  names(clusters_cell_types_hypo) = as.character(sort(cluster_order))
+  
+  #Annotate giotto object with the cluster order 
+  
+  current_object  = annotateGiotto(gobject = current_object, annotation_vector = clusters_cell_types_hypo,
+                                      cluster_column = 'leiden_clus', name = 'cell_types')
+
+  mycolorcode = c("lightblue", "deeppink", "Red", "darkgoldenrod1", "Green", "Yellow", "Blue", "black" ,"Darkorange")
+  names(mycolorcode) = c("Hepatocyte", "EC", "Erythroid", "Erythroid Progenitor", "Macrophage", 
+                       "SEC", "AEC", "Megakaryocyte", "Myeloid")
+
+  # Make an annotated UMAP 
+  plotUMAP( current_object, cell_color = 'cell_types', point_size = 1,cell_color_code = mycolorcode, title = sample_names[cell_type_index])
+
+
+  # The entire sample plotted into 2D space 
+  spatPlot2D(gobject = current_object, cell_color = 'cell_types', point_size = 1, cell_color_code = mycolorcode,
+           title = sample_names[cell_type_index])
+
+  cell_type_index = cell_type_index +1 
+}
+
+```
+
+# Make Voronoi plots to search for Islands
+
+```{r eval = TRUE}
+vor_index =1
+for(object in 1:length(filtered_objects)){
+  current_object = list_of_objects[[object]]
+  
+  # Now only show/color erythoid and macrophages to search for islands
+  cells_to_show = c("Macrophage", "Erythroid")
+
+  spatPlot2D(gobject =current_object, cell_color = 'cell_types', point_size =1,  cell_color_code = mycolorcode,
+          title = sample_names[vor_index], select_cell_groups = cells_to_show,
+          other_cell_color = "lightgrey", show_other_cells = F)
+  
+  vor_index = vor_index +1 
+}
+```
